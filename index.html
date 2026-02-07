@@ -47,7 +47,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
+            overflow: visible;
             border-radius: 15px;
             background: #fff;
         }
@@ -77,7 +77,7 @@
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            transition: transform 0.18s ease, left 0.2s ease, top 0.2s ease;
+            transition: transform 0.3s ease, left 0.4s ease, top 0.4s ease, background-color 0.3s ease;
             touch-action: manipulation;
         }
 
@@ -91,6 +91,8 @@
             background-color: #adb5bd;
             color: #fff;
             z-index: 3;
+            min-width: 120px;
+            transition: transform 0.3s ease, left 0.4s ease, top 0.4s ease, background-color 0.3s ease, color 0.3s ease;
         }
 
         /* visually greyed out when disabled */
@@ -137,113 +139,72 @@
         const gifContainer = document.getElementById('gifContainer');
         const mainContainer = document.getElementById('mainContainer');
 
-        let yesScale = 1;
+        // Valentine quotes and messages for the No button progression
+        const loveQuotes = [
+            "Are u sure! 🥺",
+            "No I am not gonna leave 💔",
+            "You can't say no to love ❤️",
+            "My heart beats for you 💕",
+            "Forever starts with you 🌹",
+            "You are my Valentine 💝",
+            "Say yes, make me happy 😢",
+            "I'll wait forever if needed ⏳"
+        ];
 
-        // Helpers
-        function updateMeasurements() {
-            // ensure measurements reflect current layout
-            return {
-                gifRect: gifContainer.getBoundingClientRect(),
-                mainRect: mainContainer.getBoundingClientRect()
-            };
+        let quoteIndex = 0;
+        let isClickDisabled = false;
+
+        function getRandomPosition() {
+            // Get GIF container dimensions and position
+            const gifRect = gifContainer.getBoundingClientRect();
+            const buttonRect = noBtn.getBoundingClientRect();
+
+            // Available space inside GIF container
+            const maxX = Math.max(0, gifRect.width - buttonRect.width);
+            const maxY = Math.max(0, gifRect.height - buttonRect.height);
+
+            const randomX = Math.random() * maxX;
+            const randomY = Math.random() * maxY;
+
+            return { x: randomX, y: randomY };
         }
 
-        function clamp(v, a, b) {
-            return Math.max(a, Math.min(v, b));
-        }
+        // Debounced click handler for No button
+        function onNoClick() {
+            // Prevent multiple rapid clicks
+            if (isClickDisabled) return;
+            isClickDisabled = true;
 
-        function moveNoButtonInsideGif() {
-            const { gifRect, mainRect } = updateMeasurements();
+            // Update button text
+            noBtn.textContent = loveQuotes[quoteIndex % loveQuotes.length];
+            quoteIndex++;
 
-            // compute available space inside gif container for the No button
-            const maxX = Math.max(0, gifRect.width - noBtn.offsetWidth);
-            const maxY = Math.max(0, gifRect.height - noBtn.offsetHeight);
-
-            // choose random position inside gif container
-            const randX = Math.random() * maxX;
-            const randY = Math.random() * maxY;
-
-            // compute offset relative to main container (which is position:relative)
-            const offsetLeft = gifRect.left - mainRect.left;
-            const offsetTop = gifRect.top - mainRect.top;
-
-            // final position
-            const finalLeft = offsetLeft + randX;
-            const finalTop = offsetTop + randY;
-
-            // apply position but clamp to remain fully visible inside main container
-            const minLeft = 0;
-            const maxLeft = mainRect.width - noBtn.offsetWidth;
-            const minTop = 0;
-            const maxTop = mainRect.height - noBtn.offsetHeight;
-
+            // Move button to new random position within GIF container
+            const pos = getRandomPosition();
             noBtn.style.position = 'absolute';
-            noBtn.style.left = clamp(finalLeft, minLeft, maxLeft) + 'px';
-            noBtn.style.top = clamp(finalTop, minTop, maxTop) + 'px';
+            noBtn.style.left = pos.x + 'px';
+            noBtn.style.top = pos.y + 'px';
+
+            // Add visual feedback
+            noBtn.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                noBtn.style.transform = 'scale(1)';
+            }, 150);
+
+            // Re-enable clicking after transition completes
+            setTimeout(() => {
+                isClickDisabled = false;
+            }, 400);
         }
 
-        // Use pointerdown for broad device support; prevent double-fire with touchstart/click
-        function addSinglePointerListener(el, handler) {
-            el.addEventListener('pointerdown', function pointerHandler(e) {
-                handler(e);
-            });
-            // fallback for older browsers/devices if pointer events not supported
-            el.addEventListener('click', handler);
-        }
-
-        // When "No" is clicked/touched, enlarge Yes and move No inside GIF area
-        addSinglePointerListener(noBtn, () => {
-            yesScale += 0.5;
-            yesBtn.style.transform = `scale(${yesScale})`;
-
-            // ensure layout settled (image loaded / orientation) before placing
-            requestAnimationFrame(() => moveNoButtonInsideGif());
-        });
+        // When "No" is clicked
+        noBtn.addEventListener('click', onNoClick);
 
         // When "Yes" is clicked
-        addSinglePointerListener(yesBtn, () => {
+        yesBtn.addEventListener('click', () => {
             askSection.style.display = 'none';
             successSection.style.display = 'block';
         });
-
-        // Keep No button constrained on resize/orientation changes
-        function onLayoutChange() {
-            // if No is absolute, clamp its position to gif bounds
-            if (noBtn.style.position === 'absolute') {
-                const { gifRect, mainRect } = updateMeasurements();
-
-                // compute current relative pos to gif
-                let left = parseFloat(noBtn.style.left || 0);
-                let top = parseFloat(noBtn.style.top || 0);
-
-                const relLeft = left - (gifRect.left - mainRect.left);
-                const relTop = top - (gifRect.top - mainRect.top);
-
-                const maxRelX = Math.max(0, gifRect.width - noBtn.offsetWidth);
-                const maxRelY = Math.max(0, gifRect.height - noBtn.offsetHeight);
-
-                const clampedRelLeft = clamp(relLeft, 0, maxRelX);
-                const clampedRelTop = clamp(relTop, 0, maxRelY);
-
-                noBtn.style.left = (gifRect.left - mainRect.left + clampedRelLeft) + 'px';
-                noBtn.style.top = (gifRect.top - mainRect.top + clampedRelTop) + 'px';
-            }
-        }
-
-        window.addEventListener('resize', () => {
-            // wait for layout to stabilize on mobile
-            setTimeout(onLayoutChange, 50);
-        });
-        window.addEventListener('orientationchange', () => setTimeout(onLayoutChange, 150));
-
-        // ensure image loaded before first measurements (helps small screens)
-        const img = gifContainer.querySelector('img');
-        if (!img.complete) {
-            img.addEventListener('load', () => {
-                // optional: place 'No' initially inside gif, comment out if you prefer it in flow
-                // moveNoButtonInsideGif();
-            });
-        }
     </script>
 </body>
 
